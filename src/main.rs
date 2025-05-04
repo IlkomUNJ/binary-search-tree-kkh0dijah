@@ -4,15 +4,30 @@ mod tool;
 use crate::structure::bst::BstNode;
 use crate::structure::tree::Node;
 use crate::structure::tree::NodeLink;
-use crate::structure::bst::BstNodeLink;
 use crate::tool::generate_dotfile;
 use crate::tool::generate_dotfile_bst;
+use crate::structure::bst::{BstNodeLink, new_bst_nodelink, tree_insert, tree_delete};
+
+
+
+
 
 fn main() {
-    //turn on to test the old code
-    // test_binary_tree();
-    test_binary_search_tree();
+    let mut rootlink = new_bst_nodelink(15);
+
+    for &value in &[6, 18, 3, 7, 17, 20, 2, 4, 13, 9] {
+        tree_insert(&mut rootlink, value);
+    }
+
+    generate_dotfile_bst(&rootlink, "output_after_insert.dot");
+
+    tree_delete(&mut rootlink, 6);
+    tree_delete(&mut rootlink, 13);
+
+    generate_dotfile_bst(&rootlink, "output_after_delete.dot");
 }
+
+
 
 fn test_binary_search_tree(){
     let rootlink: BstNodeLink = BstNode::new_bst_nodelink(15);
