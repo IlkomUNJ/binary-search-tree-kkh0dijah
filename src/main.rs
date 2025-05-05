@@ -4,30 +4,15 @@ mod tool;
 use crate::structure::bst::BstNode;
 use crate::structure::tree::Node;
 use crate::structure::tree::NodeLink;
+use crate::structure::bst::BstNodeLink;
 use crate::tool::generate_dotfile;
 use crate::tool::generate_dotfile_bst;
-use crate::structure::bst::{BstNodeLink, new_bst_nodelink, tree_insert, tree_delete};
-
-
-
-
 
 fn main() {
-    let mut rootlink = new_bst_nodelink(15);
-
-    for &value in &[6, 18, 3, 7, 17, 20, 2, 4, 13, 9] {
-        tree_insert(&mut rootlink, value);
-    }
-
-    generate_dotfile_bst(&rootlink, "output_after_insert.dot");
-
-    tree_delete(&mut rootlink, 6);
-    tree_delete(&mut rootlink, 13);
-
-    generate_dotfile_bst(&rootlink, "output_after_delete.dot");
+    //turn on to test the old code
+    test_binary_tree();
+    //test_binary_search_tree();
 }
-
-
 
 fn test_binary_search_tree(){
     let rootlink: BstNodeLink = BstNode::new_bst_nodelink(15);
@@ -73,9 +58,26 @@ fn test_binary_search_tree(){
         }
     }
 
+    let mut rootlink: Option<BstNodeLink> = None;
+
+    BstNode::insert(&mut rootlink, 42);
+    BstNode::insert(&mut rootlink, 17);
+    BstNode::insert(&mut rootlink, 68);
+    BstNode::insert(&mut rootlink, 9);
+    BstNode::insert(&mut rootlink, 33);
+
+    println!("Tree structure has been modified after insertions.");
+
+    if let Some(root_node) = rootlink.clone() {
+        BstNode::delete(&mut rootlink, &root_node);
+    }
+
+    println!("Tree structure has been modified after deletion.");
+
+
     //print the tree at this time
     let main_tree_path = "bst_graph.dot";
-    generate_dotfile_bst(&rootlink, main_tree_path);
+    generate_dotfile_bst(rootlink.as_ref().unwrap(), main_tree_path);
 
     //tree search test
     let search_keys = vec![15, 9, 22];
@@ -83,24 +85,35 @@ fn test_binary_search_tree(){
     for &key in search_keys.iter() {
         print!("tree search result of key {} is ", key);
 
-        if let Some(node_result) = rootlink.borrow().tree_search(&key) {
-            println!("found -> {:?}", node_result.borrow().key);
+        if let Some(ref node) = rootlink {
+            if let Some(node_result) = node.borrow().tree_search(&key) {
+                println!("found -> {:?}", node_result.borrow().key);
+            } else {
+                println!("not found");
+            }
         } else {
-            println!("not found");
+            println!("Tree is empty");
+            break;
         }
     }
 
-    //min test
-    let min_node = rootlink.borrow().minimum();
-    println!("minimum result {:?}", min_node.borrow().key);
-
-    //max test
-    let max_node = rootlink.borrow().maximum();
-    println!("maximum result {:?}", max_node.borrow().key);
+    if let Some(ref node) = rootlink {
+        let min_node = node.borrow().minimum();
+        println!("minimum result {:?}", min_node.borrow().key);
+    
+        let max_node = node.borrow().maximum();
+        println!("maximum result {:?}", max_node.borrow().key);
+    } else {
+        println!("Tree is empty, cannot get min or max");
+    }
+    
 
     //root node get test
-    let root_node = BstNode::get_root(&max_node);
-    println!("root node {:?}", root_node.borrow().key);
+    if let Some(ref node) = rootlink {
+        let max_node = node.borrow().maximum();
+        let root_node = BstNode::get_root(&max_node);
+        println!("root node {:?}", root_node.borrow().key);
+    }    
 
     //successor test
     let query_keys = vec![
@@ -115,16 +128,20 @@ fn test_binary_search_tree(){
     ];
 
     for &key in query_keys.iter() {
-        if let Some(node) = rootlink.borrow().tree_search(&key) {
-            print!("successor of node ({}) is ", key);
-
-            if let Some(successor) = BstNode::tree_successor_simpler(&node) {
-                println!("{:?}", successor.borrow().key);
+        if let Some(ref node_rc) = rootlink {
+            if let Some(node) = node_rc.borrow().tree_search(&key) {
+                print!("successor of node ({}) is ", key);
+    
+                if let Some(successor) = BstNode::tree_successor_simpler(&node) {
+                    println!("{:?}", successor.borrow().key);
+                } else {
+                    println!("not found");
+                }
             } else {
-                println!("not found");
+                println!("node with key of {} does not exist, failed to get successor", key);
             }
         } else {
-            println!("node with key of {} does not exist, failed to get successor", key)
+            println!("Tree is empty.");
         }
     }
 }

@@ -2,19 +2,15 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 pub type BstNodeLink = Rc<RefCell<BstNode>>;
-//pub type new_bst_nodelink = Rc<RefCell<BstNode>>;
-//pub type tree_insert = Rc<RefCell<BstNode>>;
-//pub type tree_delete = Rc<RefCell<BstNode>>;
 pub type WeakBstNodeLink = Weak<RefCell<BstNode>>;
-pub mod bst;
 
 //this package implement BST wrapper
 #[derive(Debug, Clone)]
 pub struct BstNode {
     pub key: Option<i32>,
     pub parent: Option<WeakBstNodeLink>,
-    pub left: Option<Rc<RefCell<BstNode>>>,
-    pub right: Option<Rc<RefCell<BstNode>>>,
+    pub left: Option<BstNodeLink>,
+    pub right: Option<BstNodeLink>,
 }
 
 impl BstNode {
@@ -28,7 +24,7 @@ impl BstNode {
         }
     }
 
-    pub fn new_bst_nodelink(value: i32) -> Rc<RefCell<BstNode>>  {
+    pub fn new_bst_nodelink(value: i32) -> BstNodeLink {
         let currentnode = BstNode::new(value);
         let currentlink = Rc::new(RefCell::new(currentnode));
         currentlink
@@ -147,6 +143,92 @@ impl BstNode {
         }
     }
 
+    pub fn insert(root: &mut Option<BstNodeLink>, key: i32) {
+        match root {
+            None => {
+                *root = Some(BstNode::new_bst_nodelink(key));
+            }
+            Some(node) => {
+                let mut node_borrow = node.borrow_mut();
+                if key < node_borrow.key.unwrap() {
+                    if node_borrow.left.is_none() {
+                        let new_node = BstNode::new_bst_nodelink(key);
+                        new_node.borrow_mut().parent = Some(Rc::downgrade(node));
+                        node_borrow.left = Some(new_node);
+                    } else {
+                        drop(node_borrow); // Lepas pinjaman sebelum rekursi
+                        BstNode::insert(&mut node.borrow_mut().left, key);
+                    }
+                } else {
+                    if node_borrow.right.is_none() {
+                        let new_node = BstNode::new_bst_nodelink(key);
+                        new_node.borrow_mut().parent = Some(Rc::downgrade(node));
+                        node_borrow.right = Some(new_node);
+                    } else {
+                        drop(node_borrow);
+                        BstNode::insert(&mut node.borrow_mut().right, key);
+                    }
+                }
+            }
+        }
+    }
+    
+    
+    pub fn transplant(root: &mut Option<BstNodeLink>, u: &BstNodeLink, v: Option<BstNodeLink>) {
+        if let Some(parent_weak) = &u.borrow().parent {
+            if let Some(parent) = parent_weak.upgrade() {
+                if Rc::ptr_eq(u, parent.borrow().left.as_ref().unwrap_or(u)) {
+                    parent.borrow_mut().left = v.clone();
+                } else {
+                    parent.borrow_mut().right = v.clone();
+                }
+            }
+        } else {
+            *root = v.clone();
+        }
+    
+        if let Some(ref v_node) = v {
+            v_node.borrow_mut().parent = u.borrow().parent.clone();
+        }
+    }
+    
+
+    pub fn delete(root: &mut Option<BstNodeLink>, z: &BstNodeLink) {
+        let z_left = z.borrow().left.clone();
+        let z_right = z.borrow().right.clone();
+    
+        if z_left.is_none() {
+            BstNode::transplant(root, z, z_right);
+        } else if z_right.is_none() {
+            BstNode::transplant(root, z, z_left);
+        } else {
+            let mut y = z_right.clone();
+            while let Some(ref y_node) = y {
+                if y_node.borrow().left.is_some() {
+                    let left_child = y_node.borrow().left.clone();
+                    y = left_child;
+                } else {
+                    break;
+                }
+            }
+    
+            if let Some(y_node) = y.clone() {
+                if !Rc::ptr_eq(&y_node, &z_right.as_ref().unwrap()) {
+                    let y_right = y_node.borrow().right.clone();
+                    BstNode::transplant(root, &y_node, y_right);
+                    y_node.borrow_mut().right = z_right.clone();
+                    if let Some(ref right_child) = y_node.borrow().right {
+                        right_child.borrow_mut().parent = Some(Rc::downgrade(&y_node));
+                    }
+                }
+
+                BstNode::transplant(root, z, y.clone());
+                y_node.borrow_mut().left = z_left.clone();
+            }
+        }
+    }
+    
+    
     /**
      * Alternate simpler version of tree_successor that made use of is_nil checking
      */
@@ -223,81 +305,4 @@ impl BstNode {
             Some(x) => Some(x.upgrade().unwrap()),
         }
     }
-
-
-    
-    pub fn transplant(root: &mut Option<BstNodeLink>, u: &BstNodeLink, v: Option<BstNodeLink>) {
-        let u_node = u.borrow();
-        let u_parent = u_node.parent.clone();
-    
-        drop(u_node); 
-    
-        if let Some(up) = u_parent.as_ref().and_then(|wp| wp.upgrade()) {
-            if let Some(left_child) = up.borrow().left.as_ref() {
-                if Rc::ptr_eq(u, left_child) {
-                    up.borrow_mut().left = v.clone();
-                } else {
-                    up.borrow_mut().right = v.clone();
-                }
-            } else {
-                up.borrow_mut().right = v.clone(); 
-            }
-        } else {
-            *root = v.clone(); 
-        }
-    
-        if let Some(v_node) = v {
-            v_node.borrow_mut().parent = u_parent;
-        }
-    }
-
-    
-    pub fn tree_insert(root: &mut BstNodeLink, value: i32) {
-        if let Some(ref node_rc) = root {
-            let mut node = node_rc.borrow_mut();
-            if value < node.value {
-                tree_insert(&mut node.left, value);
-            } else if value > node.value {
-                tree_insert(&mut node.right, value);
-            }
-        } else {
-            *root = new_bst_nodelink(value);
-        }
-    }
-    
-    pub fn tree_delete(root: &mut BstNodeLink, value: i32) {
-        if let Some(ref node_rc) = root {
-            let mut node = node_rc.borrow_mut();
-            if value < node.value {
-                tree_delete(&mut node.left, value);
-            } else if value > node.value {
-                tree_delete(&mut node.right, value);
-            } else {
-                if node.left.is_none() {
-                    *root = node.right.clone();
-                } else if node.right.is_none() {
-                    *root = node.left.clone();
-                } else {
-                    let max_node = find_max(&node.left).unwrap();
-                    node.value = max_node.borrow().value;
-                    tree_delete(&mut node.left, node.value);
-                }
-            }
-        }
-    }
-
-    pub fn find_max(node: &Option<Rc<RefCell<BstNode>>>) -> Option<Rc<RefCell<BstNode>>> {
-        let mut current = node.clone();
-        while let Some(ref node_ref) = current {
-            let left = node_ref.borrow().left.clone();
-            if left.is_some() {
-                current = left;
-            } else {
-                break;
-            }
-        }
-        current
-    }
-
-
 }
